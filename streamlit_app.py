@@ -102,16 +102,16 @@ if gemini_key and hf_key:
         col_m1, col_m2, col_m3, col_m4 = st.columns(4)
         
         with col_m1:
-            chest = st.number_input("Chest", min_value=20, max_value=60, value=38, step=0.5)
+            chest = st.number_input("Chest", min_value=20, max_value=60, value=38.0, step=0.5)
         
         with col_m2:
-            waist = st.number_input("Waist", min_value=18, max_value=50, value=32, step=0.5)
+            waist = st.number_input("Waist", min_value=18, max_value=50, value=32.0, step=0.5)
         
         with col_m3:
-            length = st.number_input("Length", min_value=15, max_value=40, value=28, step=0.5)
+            length = st.number_input("Length", min_value=15, max_value=40, value=28.0, step=0.5)
         
         with col_m4:
-            sleeves = st.number_input("Sleeves", min_value=16, max_value=40, value=32, step=0.5)
+            sleeves = st.number_input("Sleeves", min_value=16, max_value=40, value=32.0, step=0.5)
         
         # Fit
         fit = st.selectbox(
