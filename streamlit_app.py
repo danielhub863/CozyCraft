@@ -228,21 +228,39 @@ Make the prompt creative, specific, and suitable for an AI image generator. Focu
                     # Generate image with Hugging Face
                     st.info("📸 Generating image... (this may take 1-2 minutes)")
                     
-                    API_URL = "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-3.5-large"
-                    headers = {"Authorization": f"Bearer {hf_key}"}
+                    # Try multiple image models for compatibility
+                    image_models = [
+                        "stabilityai/stable-diffusion-3.5-large",
+                        "stabilityai/stable-diffusion-2.1",
+                        "runwayml/stable-diffusion-v1-5",
+                        "stabilityai/stable-diffusion-v1-5"
+                    ]
                     
+                    headers = {"Authorization": f"Bearer {hf_key}"}
                     payload = {"inputs": generated_prompt}
                     
-                    response = requests.post(API_URL, headers=headers, json=payload, timeout=120)
+                    image_generated = False
+                    for model_url_name in image_models:
+                        try:
+                            API_URL = f"https://api-inference.huggingface.co/models/{model_url_name}"
+                            response = requests.post(API_URL, headers=headers, json=payload, timeout=120)
+                            
+                            if response.status_code == 200:
+                                image = Image.open(BytesIO(response.content))
+                                st.session_state.generated_image = image
+                                st.success("✅ Design generated successfully!")
+                                image_generated = True
+                                break
+                        except:
+                            continue
                     
-                    if response.status_code == 200:
-                        image = Image.open(BytesIO(response.content))
-                        st.session_state.generated_image = image
-                        st.success("✅ Design generated successfully!")
-                    else:
+                    if not image_generated:
+                        # If all models failed, show last error
                         st.error(f"❌ Image generation failed: {response.status_code}")
                         if response.status_code == 429:
                             st.warning("⚠️ Rate limited. Please wait a moment and try again.")
+                        elif response.status_code == 410:
+                            st.error("Model not available on free tier. Try again later or use a different prompt.")
                         elif response.status_code == 400:
                             st.error("Invalid prompt. Please try adjusting your preferences.")
                 
