@@ -170,6 +170,7 @@ if gemini_key and hf_key:
                     configure(api_key=gemini_key)
                     # Try multiple model names for compatibility (newest first)
                     models_to_try = [
+                        'gemini-flash-latest',  # Latest Gemini Flash (renamed)
                         'gemini-2.0-flash-exp',
                         'gemini-2.0-flash',
                         'gemini-exp-1206',
