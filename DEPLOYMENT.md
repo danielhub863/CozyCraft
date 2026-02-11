@@ -84,13 +84,14 @@ Your app will be at `http://localhost:8501`
 3. Click "Create API key in new project"
 4. Copy your API key
 
-### Hugging Face (Free)
-1. Visit [huggingface.co](https://huggingface.co)
-2. Sign up or log in
-3. Go Settings → Access Tokens
-4. Click "New token"
-5. Select "Read" permission
-6. Copy your token
+### Replicate (Free with Credits)
+1. Visit [replicate.com](https://replicate.com)
+2. Sign up (free account, includes free credits)
+3. Go to Account → API Tokens
+4. Copy your API token
+5. Add to Streamlit Secrets as `REPLICATE_API_KEY`
+
+**Note:** Replicate replaced Hugging Face for more reliable image generation!
 
 ---
 

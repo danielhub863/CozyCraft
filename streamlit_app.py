@@ -60,7 +60,7 @@ with st.sidebar:
     # Try to get keys from Streamlit secrets first
     try:
         gemini_key = st.secrets["GEMINI_API_KEY"]
-        hf_key = st.secrets["HUGGINGFACE_API_KEY"]
+        replicate_key = st.secrets["REPLICATE_API_KEY"]
         st.success("✅ API Keys loaded from Streamlit Secrets")
     except (KeyError, FileNotFoundError):
         st.info("📝 Using manual API key input (local development)")
@@ -71,14 +71,14 @@ with st.sidebar:
             help="Get from: https://aistudio.google.com"
         )
         
-        hf_key = st.text_input(
-            "Hugging Face API Token",
+        replicate_key = st.text_input(
+            "Replicate API Token",
             type="password",
-            help="Get from: https://huggingface.co/settings/tokens"
+            help="Get from: https://replicate.com/account/api-tokens"
         )
 
 # Main app
-if gemini_key and hf_key:
+if gemini_key and replicate_key:
     col1, col2 = st.columns([1, 1], gap="large")
     
     with col1:
@@ -225,76 +225,90 @@ Make the prompt creative, specific, and suitable for an AI image generator. Focu
                     
                     st.session_state.generated_prompt = generated_prompt
                     
-                    # Generate image with Hugging Face (free tier compatible)
-                    st.info("📸 Generating image... (this may take 1-2 minutes)")
+                    # Generate image with Replicate API
+                    st.info("📸 Generating image with Replicate... (this may take 1-2 minutes)")
                     
-                    # Use models known to work on free tier
-                    image_models = [
-                        "runwayml/stable-diffusion-v1-5",
-                        "stabilityai/stable-diffusion-2-base",
-                        "Linaqruf/anything-v3.0",
-                        "stabilityai/stable-diffusion-2",
-                    ]
+                    import time
                     
-                    headers = {"Authorization": f"Bearer {hf_key}"}
-                    payload = {"inputs": generated_prompt}
+                    headers = {"Authorization": f"Token {replicate_key}"}
                     
-                    image_generated = False
-                    last_error = None
-                    last_status = None
-                    
-                    for model_url_name in image_models:
-                        try:
-                            API_URL = f"https://api-inference.huggingface.co/models/{model_url_name}"
-                            with st.spinner(f"⏳ Trying {model_url_name}..."):
-                                response = requests.post(API_URL, headers=headers, json=payload, timeout=120)
-                            
-                            last_status = response.status_code
-                            
-                            if response.status_code == 200:
-                                image = Image.open(BytesIO(response.content))
-                                st.session_state.generated_image = image
-                                st.success(f"✅ Success! Generated with {model_url_name}")
-                                image_generated = True
-                                break
-                            elif response.status_code == 503:
-                                st.info(f"⏳ Model loading (cold start)... trying next")
-                                continue
-                            elif response.status_code == 500:
-                                st.info(f"⚠️ Server error, trying next model...")
-                                continue
-                        except Exception as e:
-                            last_error = str(e)
-                            continue
-                    
-                    if not image_generated:
-                        st.error("❌ **All image generation models failed**")
-                        st.error(f"**Last Status Code: {last_status}**")
-                        
-                        if last_status == 410:
-                            st.error(
-                                "⚠️ **Model Not Available (410)**\n\n"
-                                "**This usually means:**\n"
-                                "1. Free tier models may need waiting time (cold start)\n"
-                                "2. Your Hugging Face token may not have file access\n"
-                                "3. Try again in 5-10 minutes\n\n"
-                                "**To verify your token:**\n"
-                                "1. Go to https://huggingface.co/settings/tokens\n"
-                                "2. Click your token and verify it's 'Read' type\n"
-                                "3. Copy the EXACT token again\n"
-                                "4. Update in Streamlit Cloud Secrets\n\n"
-                                "**Alternative:** Upgrade to Hugging Face PRO (~$9/month)"
+                    try:
+                        with st.spinner("🎨 Starting image generation..."):
+                            # Create prediction on Replicate
+                            response = requests.post(
+                                "https://api.replicate.com/v1/predictions",
+                                headers=headers,
+                                json={
+                                    "version": "8fda5fdf3367688b19e56887cd97069e0b0b2b79",  # Stable Diffusion 3
+                                    "input": {"prompt": generated_prompt}
+                                },
+                                timeout=30
                             )
-                        elif last_status == 401:
-                            st.error("❌ **Invalid Hugging Face Token**\n\nCheck your token in Streamlit Secrets")
-                        elif last_status == 429:
-                            st.warning("⏳ Rate limited - wait a few minutes and try again")
                         
+                        if response.status_code == 201:
+                            prediction = response.json()
+                            prediction_id = prediction['id']
+                            
+                            # Poll for completion
+                            max_wait = 300  # 5 minutes
+                            elapsed = 0
+                            poll_interval = 2
+                            
+                            progress_bar = st.progress(0)
+                            status_text = st.empty()
+                            
+                            with st.spinner("⏳ Waiting for image generation to complete..."):
+                                while elapsed < max_wait:
+                                    poll_response = requests.get(
+                                        f"https://api.replicate.com/v1/predictions/{prediction_id}",
+                                        headers=headers
+                                    )
+                                    
+                                    if poll_response.status_code == 200:
+                                        pred_data = poll_response.json()
+                                        progress = min(elapsed / max_wait, 0.99)
+                                        progress_bar.progress(progress)
+                                        status_text.text(f"Status: {pred_data['status']}...")
+                                        
+                                        if pred_data['status'] == 'succeeded':
+                                            image_url = pred_data['output'][0]
+                                            img_response = requests.get(image_url)
+                                            image = Image.open(BytesIO(img_response.content))
+                                            st.session_state.generated_image = image
+                                            progress_bar.progress(1.0)
+                                            status_text.text("✅ Image generated successfully!")
+                                            st.success("✅ Success! Image generated with Stable Diffusion 3")
+                                            break
+                                        elif pred_data['status'] == 'failed':
+                                            error_msg = pred_data.get('error', 'Unknown error')
+                                            st.error(f"❌ Image generation failed: {error_msg}")
+                                            break
+                                    
+                                    time.sleep(poll_interval)
+                                    elapsed += poll_interval
+                            
+                            progress_bar.empty()
+                            status_text.empty()
+                            
+                            if elapsed >= max_wait:
+                                st.warning("⏳ Image generation took too long. Please try again.")
+                        
+                        elif response.status_code == 401:
+                            st.error("❌ **Invalid Replicate API Token**\\n\\nCheck your token in Streamlit Secrets")
+                        elif response.status_code == 400:
+                            st.error(f"❌ **Bad Request**: {response.json().get('detail', 'Invalid parameters')}")
+                        else:
+                            st.error(f"❌ **Error {response.status_code}**: {response.text}")
+                    
+                    except Exception as e:
+                        image_generated = False
+                        last_error = str(e)
+                        st.error(f"❌ Error generating image: {last_error}")
                         st.info("💡 **Troubleshooting:**\n"
-                               "• Check Hugging Face token at: https://huggingface.co/settings/tokens\n"
-                               "• Ensure token type is 'Read'\n"
-                               "• Wait 5+ minutes for cold start on free tier\n"
-                               "• Try refreshing page and generating again")
+                               "• Check Replicate token at: https://replicate.com/account/api-tokens\n"
+                               "• Ensure you have credits in your Replicate account\n"
+                               "• Try a different prompt\n"
+                               "• Check Replicate status: https://status.replicate.com")
                 
                 except Exception as e:
                     error_msg = str(e)
@@ -305,7 +319,7 @@ Make the prompt creative, specific, and suitable for an AI image generator. Focu
                     elif "API key" in error_msg or "UNAUTHENTICATED" in error_msg:
                         st.error("❌ **API Key Problem**\n\nYour Gemini API key is invalid or missing. Check:\n1. You copied the FULL key from aistudio.google.com\n2. No extra spaces at start/end\n3. It's added to Streamlit Cloud Secrets")
                     else:
-                        st.info("💡 **Troubleshooting tips:**\n- Verify Gemini API key: https://aistudio.google.com\n- Verify Hugging Face token has read access\n- Free tier may have rate limits (wait a moment and retry)\n- Check both API keys in Streamlit Secrets (not in code)")
+                        st.info("💡 **Troubleshooting tips:**\n- Verify Gemini API key: https://aistudio.google.com\n- Verify Replicate token at: https://replicate.com/account/api-tokens\n- Ensure you have credits in Replicate account\n- Check both API keys in Streamlit Secrets (not in code)")
     
     # Display results
     if st.session_state.generated_image:
@@ -352,15 +366,15 @@ else:
     4. Copy the full key (including all characters)
     5. Paste it in the sidebar above
     
-    ### Hugging  Face API Token
-    1. Go to **[huggingface.co](https://huggingface.co)**
-    2. Sign up (free, no credit card)
-    3. Click your profile → **Settings**
-    4. Click **"Access Tokens"** on left
-    5. Click **"New token"** and select **"Read"**
-    6. Copy and paste above
+    ### Replicate API Token
+    1. Go to **[replicate.com](https://replicate.com)**
+    2. Sign up (free account with free credits)
+    3. Click your profile → **Account**
+    4. Scroll down to **"API tokens"**
+    5. Copy your API token
+    6. Paste it in the sidebar above
     
-    🎉 **No credit card required!**
+    💡 **Free tier includes credits for image generation!**
     
     ---
     
@@ -372,19 +386,20 @@ else:
     3. Add both keys (without quotes):
     ```
     GEMINI_API_KEY = "your_key_here"
-    HUGGINGFACE_API_KEY = "your_token_here"
+    REPLICATE_API_KEY = "your_token_here"
     ```
     4. Click **"Save"**
     
     ---
     
-    ## ❌ Getting "not found" or API errors?
+    ## ❌ Getting errors?
     
-    **Fix:** Your API key is wrong or expired.
-    1. Get a FRESH key from the links above
-    2. Make sure you copied the ENTIRE key (no spaces at start/end)
-    3. Update it in Streamlit Cloud (**Settings → Secrets**)
-    4. Refresh the page
+    **Fix:** Your API key is wrong, expired, or Replicate account has no credits.
+    1. Get FRESH keys from the links above
+    2. Check Replicate account has available credits: https://replicate.com/account/api-tokens
+    3. Make sure you copied the ENTIRE key (no spaces at start/end)
+    4. Update it in Streamlit Cloud (**Settings → Secrets**)
+    5. Refresh the page
     """)
 
 # Footer
