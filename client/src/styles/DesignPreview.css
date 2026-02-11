@@ -1,0 +1,105 @@
+.design-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.design-preview h2 {
+  color: #333;
+  font-size: 1.5rem;
+}
+
+.preview-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.design-image {
+  width: 100%;
+  max-width: 500px;
+  height: auto;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border: 2px solid #e0e0e0;
+}
+
+.preview-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.action-button {
+  padding: 0.875rem 1.5rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.download-button {
+  background-color: #667eea;
+  color: white;
+}
+
+.download-button:hover {
+  background-color: #5568d3;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.purchase-button {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: white;
+}
+
+.purchase-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(245, 87, 108, 0.4);
+}
+
+.action-button:active {
+  transform: translateY(0);
+}
+
+.prompt-details {
+  border-top: 2px solid #e0e0e0;
+  padding-top: 1.5rem;
+}
+
+.prompt-details summary {
+  cursor: pointer;
+  color: #667eea;
+  font-weight: 600;
+  user-select: none;
+  padding: 0.75rem;
+  border-radius: 6px;
+  background-color: #f8f9ff;
+  transition: all 0.3s ease;
+}
+
+.prompt-details summary:hover {
+  background-color: #eef0ff;
+}
+
+.prompt-text {
+  color: #666;
+  line-height: 1.6;
+  font-size: 0.95rem;
+  margin-top: 1rem;
+  padding: 1rem;
+  background-color: #f8f9ff;
+  border-radius: 6px;
+  border-left: 4px solid #667eea;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+@media (max-width: 640px) {
+  .preview-actions {
+    grid-template-columns: 1fr;
+  }
+}
