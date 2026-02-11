@@ -52,6 +52,11 @@ st.markdown("""
 with st.sidebar:
     st.header("⚙️ Configuration")
     
+    st.write("**If deployed on Streamlit Cloud:**")
+    st.caption("✅ API keys come from Settings → Secrets")
+    
+    st.divider()
+    
     # Try to get keys from Streamlit secrets first
     try:
         gemini_key = st.secrets["GEMINI_API_KEY"]
@@ -163,7 +168,14 @@ if gemini_key and hf_key:
                 try:
                     # Configure Gemini
                     configure(api_key=gemini_key)
-                    model = GenerativeModel('gemini-1.5-flash')
+                    # Try multiple model names for compatibility
+                    try:
+                        model = GenerativeModel('gemini-1.5-flash-latest')
+                    except:
+                        try:
+                            model = GenerativeModel('gemini-1.5-flash')
+                        except:
+                            model = GenerativeModel('gemini-pro')
                     
                     # Format measurements
                     measurements_text = f"""
@@ -222,8 +234,15 @@ Make the prompt creative, specific, and suitable for an AI image generator. Focu
                             st.error("Invalid prompt. Please try adjusting your preferences.")
                 
                 except Exception as e:
-                    st.error(f"❌ Error: {str(e)}")
-                    st.info("💡 Troubleshooting tips:\n- Check your API keys are valid\n- Ensure Hugging Face token has read access\n- Free tier may have rate limits")
+                    error_msg = str(e)
+                    st.error(f"❌ Error: {error_msg}")
+                    
+                    if "not found" in error_msg or "404" in error_msg:
+                        st.error("❌ **Invalid Gemini API Key**\n\nYour API key is not working. Please:\n1. Go to https://aistudio.google.com\n2. Get a NEW API key\n3. Update it in Streamlit Secrets (Settings → Secrets)")
+                    elif "API key" in error_msg or "UNAUTHENTICATED" in error_msg:
+                        st.error("❌ **API Key Problem**\n\nYour Gemini API key is invalid or missing. Check:\n1. You copied the FULL key from aistudio.google.com\n2. No extra spaces at start/end\n3. It's added to Streamlit Cloud Secrets")
+                    else:
+                        st.info("💡 **Troubleshooting tips:**\n- Verify Gemini API key: https://aistudio.google.com\n- Verify Hugging Face token has read access\n- Free tier may have rate limits (wait a moment and retry)\n- Check both API keys in Streamlit Secrets (not in code)")
     
     # Display results
     if st.session_state.generated_image:
@@ -261,28 +280,48 @@ else:
     st.warning("👈 Please enter your API keys in the sidebar to get started!")
     
     st.markdown("""
-    ## 🔑 How to Get Your API Keys (2 minutes)
+    ## 🔑 How to Get Your API Keys (Free!)
     
-    ### Google Gemini API (Free)
-    1. Go to [Google AI Studio](https://aistudio.google.com)
-    2. Click "Get API Key"
-    3. Click "Create API key in new project" 
-    4. Copy the key and paste it above
+    ### Google Gemini API
+    1. Go to **[aistudio.google.com](https://aistudio.google.com)**
+    2. Click **"Get API Key"**
+    3. Click **"Create API key in new project"** 
+    4. Copy the full key (including all characters)
+    5. Paste it in the sidebar above
     
-    ### Hugging Face API Token (Free)
-    1. Go to [Hugging Face](https://huggingface.co)
-    2. Sign up (free account)
-    3. Go to Settings → Access Tokens
-    4. Create a "Read" access token
-    5. Copy the token and paste it above
+    ### Hugging Face API Token
+    1. Go to **[huggingface.co](https://huggingface.co)**
+    2. Sign up (free, no credit card)
+    3. Click your profile → **Settings**
+    4. Click **"Access Tokens"** on left
+    5. Click **"New token"** and select **"Read"**
+    6. Copy and paste above
     
-    No credit card required for either service! 🎉
+    🎉 **No credit card required!**
     
     ---
     
     ## 🚀 Deployed on Streamlit Cloud?
     
-    If you're running this on Streamlit Cloud, add your API keys to **Settings → Secrets** instead!
+    If running this on Streamlit Cloud, add API keys to:
+    1. Click app menu (⋮) → **Settings**
+    2. Click **"Secrets"** tab
+    3. Add both keys (without quotes):
+    ```
+    GEMINI_API_KEY = "your_key_here"
+    HUGGINGFACE_API_KEY = "your_token_here"
+    ```
+    4. Click **"Save"**
+    
+    ---
+    
+    ## ❌ Getting "not found" or API errors?
+    
+    **Fix:** Your API key is wrong or expired.
+    1. Get a FRESH key from the links above
+    2. Make sure you copied the ENTIRE key (no spaces at start/end)
+    3. Update it in Streamlit Cloud (**Settings → Secrets**)
+    4. Refresh the page
     """)
 
 # Footer
