@@ -301,7 +301,7 @@ else:
     4. Copy the full key (including all characters)
     5. Paste it in the sidebar above
     
-    ### Hugging Face API Token
+    ### Hugging  Face API Token
     1. Go to **[huggingface.co](https://huggingface.co)**
     2. Sign up (free, no credit card)
     3. Click your profile → **Settings**
