@@ -168,14 +168,26 @@ if gemini_key and hf_key:
                 try:
                     # Configure Gemini
                     configure(api_key=gemini_key)
-                    # Try multiple model names for compatibility
-                    try:
-                        model = GenerativeModel('gemini-1.5-flash-latest')
-                    except:
+                    # Try multiple model names for compatibility (newest first)
+                    models_to_try = [
+                        'gemini-2.0-flash-exp',
+                        'gemini-2.0-flash',
+                        'gemini-exp-1206',
+                        'gemini-1.5-flash-latest',
+                        'gemini-1.5-flash',
+                        'gemini-pro'
+                    ]
+                    
+                    model = None
+                    for model_name in models_to_try:
                         try:
-                            model = GenerativeModel('gemini-1.5-flash')
+                            model = GenerativeModel(model_name)
+                            break  # Success, stop trying
                         except:
-                            model = GenerativeModel('gemini-pro')
+                            continue  # Try next model
+                    
+                    if not model:
+                        raise ValueError("No available Gemini models found. Check your API key at https://aistudio.google.com")
                     
                     # Format measurements
                     measurements_text = f"""
