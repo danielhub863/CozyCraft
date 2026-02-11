@@ -225,44 +225,45 @@ Make the prompt creative, specific, and suitable for an AI image generator. Focu
                     
                     st.session_state.generated_prompt = generated_prompt
                     
-                    # Generate image with Hugging Face
+                    # Generate image with Hugging Face (free tier compatible)
                     st.info("📸 Generating image... (this may take 1-2 minutes)")
                     
-                    # Try multiple image models for compatibility
+                    # Use models known to work on free tier
                     image_models = [
-                        "stabilityai/stable-diffusion-3.5-large",
-                        "stabilityai/stable-diffusion-2.1",
-                        "runwayml/stable-diffusion-v1-5",
-                        "stabilityai/stable-diffusion-v1-5"
+                        "runwayml/stable-diffusion-v1-5",  # Most reliable free tier
+                        "Linaqruf/anything-v3.0",  # Alternative free model
+                        "stabilityai/stable-diffusion-2",
+                        "dreamlike-art/dreamlike-photoreal-2.0"
                     ]
                     
                     headers = {"Authorization": f"Bearer {hf_key}"}
                     payload = {"inputs": generated_prompt}
                     
                     image_generated = False
+                    last_status = None
                     for model_url_name in image_models:
                         try:
                             API_URL = f"https://api-inference.huggingface.co/models/{model_url_name}"
+                            st.info(f"Trying model: {model_url_name}")
                             response = requests.post(API_URL, headers=headers, json=payload, timeout=120)
+                            last_status = response.status_code
                             
                             if response.status_code == 200:
                                 image = Image.open(BytesIO(response.content))
                                 st.session_state.generated_image = image
-                                st.success("✅ Design generated successfully!")
+                                st.success(f"✅ Design generated successfully using {model_url_name}!")
                                 image_generated = True
                                 break
-                        except:
+                        except Exception as e:
                             continue
                     
                     if not image_generated:
-                        # If all models failed, show last error
-                        st.error(f"❌ Image generation failed: {response.status_code}")
-                        if response.status_code == 429:
-                            st.warning("⚠️ Rate limited. Please wait a moment and try again.")
-                        elif response.status_code == 410:
-                            st.error("Model not available on free tier. Try again later or use a different prompt.")
-                        elif response.status_code == 400:
-                            st.error("Invalid prompt. Please try adjusting your preferences.")
+                        st.error(f"❌ Image generation failed (Status: {last_status})")
+                        st.error("**Free Tier Image Generation Tips:**\n"
+                                "1. Some models may need 'cold start' time on free tier\n"
+                                "2. Try again in 2-3 minutes\n"
+                                "3. Ensure your Hugging Face token has 'Read' permission\n"
+                                "4. Consider upgrading to Hugging Face PRO for reliable generation")
                 
                 except Exception as e:
                     error_msg = str(e)
