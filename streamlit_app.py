@@ -230,40 +230,71 @@ Make the prompt creative, specific, and suitable for an AI image generator. Focu
                     
                     # Use models known to work on free tier
                     image_models = [
-                        "runwayml/stable-diffusion-v1-5",  # Most reliable free tier
-                        "Linaqruf/anything-v3.0",  # Alternative free model
+                        "runwayml/stable-diffusion-v1-5",
+                        "stabilityai/stable-diffusion-2-base",
+                        "Linaqruf/anything-v3.0",
                         "stabilityai/stable-diffusion-2",
-                        "dreamlike-art/dreamlike-photoreal-2.0"
                     ]
                     
                     headers = {"Authorization": f"Bearer {hf_key}"}
                     payload = {"inputs": generated_prompt}
                     
                     image_generated = False
+                    last_error = None
                     last_status = None
+                    
                     for model_url_name in image_models:
                         try:
                             API_URL = f"https://api-inference.huggingface.co/models/{model_url_name}"
-                            st.info(f"Trying model: {model_url_name}")
-                            response = requests.post(API_URL, headers=headers, json=payload, timeout=120)
+                            with st.spinner(f"⏳ Trying {model_url_name}..."):
+                                response = requests.post(API_URL, headers=headers, json=payload, timeout=120)
+                            
                             last_status = response.status_code
                             
                             if response.status_code == 200:
                                 image = Image.open(BytesIO(response.content))
                                 st.session_state.generated_image = image
-                                st.success(f"✅ Design generated successfully using {model_url_name}!")
+                                st.success(f"✅ Success! Generated with {model_url_name}")
                                 image_generated = True
                                 break
+                            elif response.status_code == 503:
+                                st.info(f"⏳ Model loading (cold start)... trying next")
+                                continue
+                            elif response.status_code == 500:
+                                st.info(f"⚠️ Server error, trying next model...")
+                                continue
                         except Exception as e:
+                            last_error = str(e)
                             continue
                     
                     if not image_generated:
-                        st.error(f"❌ Image generation failed (Status: {last_status})")
-                        st.error("**Free Tier Image Generation Tips:**\n"
-                                "1. Some models may need 'cold start' time on free tier\n"
-                                "2. Try again in 2-3 minutes\n"
-                                "3. Ensure your Hugging Face token has 'Read' permission\n"
-                                "4. Consider upgrading to Hugging Face PRO for reliable generation")
+                        st.error("❌ **All image generation models failed**")
+                        st.error(f"**Last Status Code: {last_status}**")
+                        
+                        if last_status == 410:
+                            st.error(
+                                "⚠️ **Model Not Available (410)**\n\n"
+                                "**This usually means:**\n"
+                                "1. Free tier models may need waiting time (cold start)\n"
+                                "2. Your Hugging Face token may not have file access\n"
+                                "3. Try again in 5-10 minutes\n\n"
+                                "**To verify your token:**\n"
+                                "1. Go to https://huggingface.co/settings/tokens\n"
+                                "2. Click your token and verify it's 'Read' type\n"
+                                "3. Copy the EXACT token again\n"
+                                "4. Update in Streamlit Cloud Secrets\n\n"
+                                "**Alternative:** Upgrade to Hugging Face PRO (~$9/month)"
+                            )
+                        elif last_status == 401:
+                            st.error("❌ **Invalid Hugging Face Token**\n\nCheck your token in Streamlit Secrets")
+                        elif last_status == 429:
+                            st.warning("⏳ Rate limited - wait a few minutes and try again")
+                        
+                        st.info("💡 **Troubleshooting:**\n"
+                               "• Check Hugging Face token at: https://huggingface.co/settings/tokens\n"
+                               "• Ensure token type is 'Read'\n"
+                               "• Wait 5+ minutes for cold start on free tier\n"
+                               "• Try refreshing page and generating again")
                 
                 except Exception as e:
                     error_msg = str(e)
